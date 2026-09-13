@@ -2,7 +2,7 @@
 Multi App Agent Hackathon
 
 ## Sample output
-[docs/sample-ad.mp4](docs/sample-ad.mp4) — a real video ad produced end-to-end by the `video` pipeline (director agent → Blender render → composited text overlays).
+[docs/sample-ad.mp4](docs/sample-ad.mp4) — a real ad rendered end-to-end through the updated pipeline: photo → `OVEN_MODEL_ENDPOINT` (self-hosted image→GLB model) → Blender import → animated studio render with a dynamic per-product backdrop color → composited text overlay → encoded mp4.
 
 ## Setup
 ```
