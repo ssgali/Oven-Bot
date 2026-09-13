@@ -16,7 +16,9 @@ def makeChatModel(backend=None, model=None, temperature=0.2):
         return ChatOllama(model=model, base_url=url, temperature=temperature)
     if backend == "hf":
         from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+        # default max_new_tokens (512) truncates a multi-shot VideoScript JSON to an empty/invalid
+        # response; a full script plus tool-call scratchpad needs more room (confirmed live).
         endpoint = HuggingFaceEndpoint(repo_id=model, provider=os.environ.get("OVEN_VLM_PROVIDER", "auto"),
-                                       temperature=temperature)
+                                       temperature=temperature, max_new_tokens=4000)
         return ChatHuggingFace(llm=endpoint)
     raise ValueError(f"backend must be one of {list(defaultModels)}, got {backend!r}")
