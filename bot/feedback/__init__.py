@@ -1,1 +1,1 @@
-from .feedback import adjustRenderParams, classifyFeedback
+from .feedback import adjustRenderParams, classifyFeedback, isApproval

@@ -21,6 +21,12 @@ def mentions(text, terms):
     return any(re.search(rf"\b{re.escape(t)}\b", text) for t in terms)
 
 
+def isApproval(text):
+    """Used by pipelines (like VideoPipeline) that route every non-approval reply straight to `revise`
+    instead of classifying it into a canned action."""
+    return mentions(normalize(text), approveWords)
+
+
 def classifyFeedback(text):
     """Keyword router; copy terms win over render terms so "the CTA is too small" edits text, not the camera."""
     text = normalize(text)

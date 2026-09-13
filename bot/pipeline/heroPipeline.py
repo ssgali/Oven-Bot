@@ -11,7 +11,7 @@ from agent.judge import flattenForViewing
 from blender import BlenderClient, BlenderError, generateModel
 from compose import AdCopy, composeAll
 from prep import hasAlpha, removeBackground
-from ..feedback import adjustRenderParams
+from ..feedback import adjustRenderParams, classifyFeedback
 from ..jobs import FeedbackAction
 
 log = logging.getLogger(__name__)
@@ -94,6 +94,8 @@ class HeroPipeline:
     USE_3D overrides the judge and composes from the last render.
     Blender has one scene, so jobs take turns on it; blocking work runs in worker threads.
     progress(message, files=()) posts to the job thread; files are shown inline (the render previews)."""
+
+    classify = staticmethod(classifyFeedback)
 
     def __init__(self, settings):
         self.settings = settings

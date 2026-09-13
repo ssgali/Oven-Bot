@@ -103,20 +103,27 @@ def makeBackdrop(s, color, azimuth):
     return obj
 
 
-def makeCamera(center, lo, hi, a, resolution):
-    elevation = max(-80.0, min(80.0, a["elevation"]))
-    d = direction(a["azimuth"], elevation)
+def fitDistance(center, lo, hi, azimuth, elevation, lens, padding, resolution):
+    """Direction (product -> camera) and distance so the bounds fit `padding` into frame at `lens`/`resolution`.
+    Pure trig, no bpy state: shared by the single-pose studio setup and per-keyframe video camera moves."""
+    elevation = max(-80.0, min(80.0, elevation))
+    d = direction(azimuth, elevation)
     f = -d
     r = f.cross(Vector((0, 0, 1))).normalized()
     u = r.cross(f)
     resX, resY = resolution
-    tanLong = 18 / a["lens"]
+    tanLong = 18 / lens
     tanX, tanY = (tanLong, tanLong * resY / resX) if resX >= resY else (tanLong * resX / resY, tanLong)
     dist = 0.0
     for c in (Vector((x, y, z)) for x in (lo.x, hi.x) for y in (lo.y, hi.y) for z in (lo.z, hi.z)):
         v = c - center
         z = v.dot(f)
-        dist = max(dist, abs(v.dot(r)) * a["padding"] / tanX - z, abs(v.dot(u)) * a["padding"] / tanY - z)
+        dist = max(dist, abs(v.dot(r)) * padding / tanX - z, abs(v.dot(u)) * padding / tanY - z)
+    return d, dist
+
+
+def makeCamera(center, lo, hi, a, resolution):
+    d, dist = fitDistance(center, lo, hi, a["azimuth"], a["elevation"], a["lens"], a["padding"], resolution)
     data = bpy.data.cameras.new("ovenCamera")
     data.lens, data.sensor_width, data.sensor_fit = a["lens"], 36, "AUTO"
     data.clip_start, data.clip_end = dist * 0.01, dist * 50

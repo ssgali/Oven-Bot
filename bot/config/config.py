@@ -4,9 +4,11 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-pipelines = ("hero", "dev")
+pipelines = ("hero", "dev", "video")
 vlmBackends = ("hf", "ollama", "metrics")
+directorBackends = ("ollama", "hf")
 engines = ("eevee", "cycles")
+videoAspects = ("1:1", "4:5", "9:16", "16:9")
 
 
 def optionalInt(value):
@@ -42,6 +44,10 @@ class Settings:
     maxAttempts: int = 3
     hyper3dTimeout: int = 600
     vlmBackend: str = "hf"
+    directorBackend: str = "ollama"
+    videoFps: int = 30
+    videoAspect: str = "9:16"
+    videoLongEdge: int = 1080
 
     @classmethod
     def fromEnv(cls):
@@ -64,4 +70,8 @@ class Settings:
             maxAttempts=int(os.getenv("OVEN_HERO_ATTEMPTS", "3")),
             hyper3dTimeout=int(os.getenv("OVEN_HYPER3D_TIMEOUT", "600")),
             vlmBackend=choice("OVEN_VLM_BACKEND", "hf", vlmBackends),
+            directorBackend=choice("OVEN_DIRECTOR_BACKEND", "ollama", directorBackends),
+            videoFps=int(os.getenv("OVEN_VIDEO_FPS", "30")),
+            videoAspect=choice("OVEN_VIDEO_ASPECT", "9:16", videoAspects),
+            videoLongEdge=int(os.getenv("OVEN_VIDEO_LONG_EDGE", "1080")),
         )

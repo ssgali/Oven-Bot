@@ -51,24 +51,31 @@ def isolateProduct(scene, cycles):
     return restore
 
 
+def configureEngine(scene, engine, samples, transparent):
+    """Engine/sample/transparency setup shared by a single still render and a video frame-range render."""
+    if engine == "cycles":
+        scene.render.engine = "CYCLES"
+        scene.cycles.samples = samples or 128
+        scene.cycles.use_denoising = True
+        device = enableGpu(scene)
+    else:
+        setEevee(scene)
+        scene.eevee.taa_render_samples = samples or 64
+        device = "GPU"
+    r = scene.render
+    r.film_transparent = transparent
+    r.image_settings.file_format = "PNG"
+    r.image_settings.color_mode = "RGBA" if transparent else "RGB"
+    return device
+
+
 def main(a):
     scene = bpy.context.scene
     if scene.camera is None:
         raise RuntimeError("scene has no camera; run setupStudio first")
     restore = isolateProduct(scene, a["engine"] == "cycles") if a["transparent"] else (lambda: None)
-    if a["engine"] == "cycles":
-        scene.render.engine = "CYCLES"
-        scene.cycles.samples = a["samples"] or 128
-        scene.cycles.use_denoising = True
-        device = enableGpu(scene)
-    else:
-        setEevee(scene)
-        scene.eevee.taa_render_samples = a["samples"] or 64
-        device = "GPU"
+    device = configureEngine(scene, a["engine"], a["samples"], a["transparent"])
     r = scene.render
-    r.film_transparent = a["transparent"]
-    r.image_settings.file_format = "PNG"
-    r.image_settings.color_mode = "RGBA" if a["transparent"] else "RGB"
     r.filepath = a["outPath"]
     t = time.perf_counter()
     try:

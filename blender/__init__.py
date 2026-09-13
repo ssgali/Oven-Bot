@@ -3,3 +3,4 @@ from .hyper3d import (Hyper3dBalanceError, checkBalance, ensureReady, generateMo
                       pollJob, submitJob)
 from .preview import viewportScreenshot
 from .studio import renderStill, setupStudio
+from .video import VideoEncodeError, animateShots, encodeFrames, renderRange

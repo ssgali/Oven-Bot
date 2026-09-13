@@ -1,1 +1,1 @@
-from .vlm import VlmClient, VlmError, defaultModels
+from .vlm import VlmClient, VlmError, defaultModels, encodeImage

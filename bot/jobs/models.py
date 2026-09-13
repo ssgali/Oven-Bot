@@ -26,6 +26,7 @@ class FeedbackAction(str, Enum):
     REEDIT = "reedit"
     REGENERATE_3D = "regenerate_3d"
     USE_3D = "use_3d"
+    REVISE = "revise"  # generic revision for pipelines that interpret free text themselves (e.g. VideoPipeline)
     UNKNOWN = "unknown"
 
 

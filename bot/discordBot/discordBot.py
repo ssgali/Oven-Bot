@@ -6,10 +6,9 @@ from pathlib import Path
 import discord
 
 from ..config import Settings
-from ..feedback import classifyFeedback
 from ..intake import downloadAttachments, hasImage, isSupported
 from ..jobs import Attachment, FeedbackAction, JobStatus, JobStore, ProductJob, inFlight
-from ..pipeline import DevPipeline, HeroPipeline
+from ..pipeline import DevPipeline, HeroPipeline, VideoPipeline
 
 log = logging.getLogger(__name__)
 maxContent = 2000
@@ -97,7 +96,7 @@ class OvenBot(discord.Client):
         job = self.store.findByThread(message.channel.id)
         if job is None:
             return
-        action = classifyFeedback(message.content)
+        action = self.pipeline.classify(message.content)
         if job.status in inFlight:
             if action is not FeedbackAction.UNKNOWN:
                 await message.reply(f"Still working on **{job.jobId}**; send that again once the current step is posted.")
@@ -149,8 +148,11 @@ class OvenBot(discord.Client):
         await thread.send(clip(f"**{job.jobId}** {what}: {type(error).__name__}: {str(error)[:1500]}{hint}"))
 
 
+pipelineClasses = {"hero": HeroPipeline, "dev": DevPipeline, "video": VideoPipeline}
+
+
 def buildBot(settings):
-    pipeline = HeroPipeline(settings) if settings.pipeline == "hero" else DevPipeline(settings)
+    pipeline = pipelineClasses[settings.pipeline](settings)
     return OvenBot(settings, JobStore(settings.dataDir), pipeline)
 
 

@@ -8,9 +8,13 @@ progress(message) posts to the job's Discord thread. Raising fails the job (or t
 
 from pathlib import Path
 
+from ..feedback import classifyFeedback
+
 
 class DevPipeline:
     """No Blender: posts the uploaded images back, so intake, approval and revisions can be tried on a server."""
+
+    classify = staticmethod(classifyFeedback)
 
     def __init__(self, settings):
         self.settings = settings
