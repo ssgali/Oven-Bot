@@ -8,5 +8,3 @@ httpx==0.28.1
 python-dotenv==1.2.3
 huggingface_hub==1.31.0
 pydantic==2.13.5
-huggingface_hub==1.31.0
-pydantic==2.13.5
