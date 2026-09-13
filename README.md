@@ -34,8 +34,15 @@ agent/                 decisions; only heroLoop touches Blender
   judge/               pixel gate + VLM verdict + policy (proceed / retry / fallback2d)
   copywriter/          photo + seller blurb → AdCopy, no invented numbers
   heroLoop/            render → judge → retry or fallback → compose; writes decisions.json
+bot/                   Discord front end: python -m bot
+  discordBot/          OvenBot: one thread per job, downloads, posts assets, approval loop
+  pipeline/            HeroPipeline (prep → blender → agent → compose), DevPipeline (no Blender)
+  feedback/            reviewer reply → approve / reedit / rerender / regenerate_3d, render nudges
+  jobs/                ProductJob + JSON JobStore (data/jobs.json)
+  intake/              attachment filtering and download
+  config/              Settings from .env
 tests/
-  e2eTest.py  composeTest.py  judgeTest.py  heroTest.py
+  e2eTest.py  composeTest.py  judgeTest.py  heroTest.py  botTest.py
 ```
 `blenderScripts/*.py` run inside Blender via `client.runScript(path, args)`: the script gets `args`, defines `main(args)`, and its return value comes back as JSON.
 
@@ -86,8 +93,32 @@ Each attempt renders a transparent 1600² still, then `judgeRender` decides:
 | `judgeRender(render, reference, history, params, attempt, maxAttempts, vlm)` | returns `Verdict` (`action`, `scores`, `issues`, `retry`, `policy`, `judgedBy`) |
 | `writeCopy(reference, blurb, vlm)` | `(AdCopy, info)`; drops lines with numbers not in the blurb and specs repeating the title; falls back to blurb-derived copy |
 
+## Discord bot
+```
+copy .env.example .env      # set DISCORD_TOKEN; limit intake with DISCORD_INPUT_CHANNEL_ID / DISCORD_ALLOWED_GUILD_ID
+python -m bot
+```
+Discord Developer Portal: enable **Message Content Intent**; invite with View Channels, Send Messages, Read Message History, Create Public Threads, Send Messages in Threads, Attach Files. Blender must be running with the addon connected (see Setup).
+
+Post one message with product photos (optionally a `.txt`/`.csv` spec sheet; the message text is the seller blurb). The bot opens a thread and runs `HeroPipeline`:
+1. **Source image**: the largest photo; `rembg` cutout (skipped if it already has alpha, dropped if the mask coverage looks wrong).
+2. **Model**: `generateModel` under the job id, poll status posted to the thread.
+3. **Hero shots**: only this job's product is visible in the scene, then `runHero` (render → judge → retry / 2D fallback → compose). The three PNGs are attached to the thread.
+
+Replies in the thread rerun only what they touch:
+
+| Reply | Route | Reruns |
+|---|---|---|
+| `approve`, `lgtm` | approve | nothing |
+| `the CTA should say Buy Now`, `shorter title` | reedit | copywriter with the request + current copy → compose (needs a VLM backend) |
+| `brighter`, `zoom in`, `other side`, `from above` | rerender | camera/lighting nudged from the last setup → judge loop on the existing model; copy kept |
+| `the model is wrong`, `use the other image` | regenerate_3d | next image → cutout → Hyper3D → judge loop |
+
+Jobs share one Blender scene, so they queue. If the model has vanished (Blender restarted), a rerender regenerates it. A failed revision keeps the previous assets open for review. Files go to `data/<job>/input` and `data/<job>/v<n>/`, job state to `data/jobs.json`; jobs interrupted by a bot restart are reopened (or failed if they have no assets). `OVEN_PIPELINE=dev` swaps in a pipeline that posts the uploads back, to try the Discord flow without Blender. All `OVEN_*` settings are in `.env.example`.
+
 ## Test
 ```
+python tests/botTest.py                                  # offline: routing, store, pipeline revisions with a fake Blender
 python tests/e2eTest.py --image headphones.jpeg          # full run, uses one Hyper3D generation
 python tests/e2eTest.py --skipGen --obj Product          # reuse object already in scene
 python tests/composeTest.py                              # offline, writes out/hero/
