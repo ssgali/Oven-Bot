@@ -48,7 +48,8 @@ class VideoPipeline:
             initial = {
                 "jobId": job.jobId, "images": [source], "specBlurb": blurb, "objName": asset["name"],
                 "fps": s.videoFps, "aspect": s.videoAspect, "longEdge": s.videoLongEdge, "engine": s.engine,
-                "samples": None, "versionDir": str(self.jobDir(job) / "video"), "script": {}, "scriptHistory": [],
+                "samples": s.videoSamples, "versionDir": str(self.jobDir(job) / "video"), "script": {},
+                "scriptHistory": [],
                 "videoPath": None, "critique": None, "critiqueHistory": [],
             }
             self.graph.invoke(initial, self.configFor(job, client, say))

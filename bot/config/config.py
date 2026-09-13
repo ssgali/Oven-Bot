@@ -48,6 +48,7 @@ class Settings:
     videoFps: int = 30
     videoAspect: str = "9:16"
     videoLongEdge: int = 1080
+    videoSamples: int = 64
 
     @classmethod
     def fromEnv(cls):
@@ -74,4 +75,5 @@ class Settings:
             videoFps=int(os.getenv("OVEN_VIDEO_FPS", "30")),
             videoAspect=choice("OVEN_VIDEO_ASPECT", "9:16", videoAspects),
             videoLongEdge=int(os.getenv("OVEN_VIDEO_LONG_EDGE", "1080")),
+            videoSamples=int(os.getenv("OVEN_VIDEO_SAMPLES", "64")),
         )
