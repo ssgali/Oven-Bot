@@ -2,12 +2,14 @@
 **Multi App Agent Hackathon** — send a product photo to a Discord bot, get back ad creative (image or video) built through a real 3D pipeline: background removal → image-to-3D → Blender render → AI copy/judging → composited ad.
 
 ## Demo
+[![Watch the demo](docs/demo-thumb.png)](docs/demo.mp4)
+
+**[▶ docs/demo.mp4](docs/demo.mp4)** — full live run of the Discord bot: a seller message becomes an ad job, the image→GLB endpoint builds the 3D model, and the hero shots come back in-thread. Click the thumbnail (or the link) to play it — GitHub can't autoplay a committed video inside the rendered README itself, but it opens GitHub's own full-quality player with audio.
+
+### Rendered ad sample
 ![Sample ad](docs/sample-ad.gif)
 
 One video ad rendered end-to-end: photo → 3D model → animated studio render with a color tuned to the product → composited caption → encoded video ([full-quality mp4](docs/sample-ad.mp4)).
-
-### Full Discord run
-[▶ Watch the demo (docs/demo.mp4)](docs/demo.mp4) — a seller message becomes an ad job, the image→GLB endpoint builds the 3D model, and the hero shots come back in-thread. GitHub doesn't autoplay committed video inside the rendered README, so this link opens GitHub's own player — full quality, with audio.
 
 ## Apps & services connected
 | | Role |
