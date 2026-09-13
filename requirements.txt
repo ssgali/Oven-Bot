@@ -3,3 +3,6 @@ onnxruntime==1.30.0
 opencv-python-headless==5.0.0.93
 numpy==2.5.3
 pillow==12.3.0
+discord.py==2.7.1
+httpx==0.28.1
+python-dotenv==1.2.3

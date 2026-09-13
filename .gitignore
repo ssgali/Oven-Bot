@@ -1,4 +1,13 @@
 out/
-__pycache__/
-*.pyc
+data/
+.env
 .venv/
+discord_bot
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/

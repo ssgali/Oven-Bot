@@ -11,6 +11,11 @@ First background removal downloads the rembg model once (~180 MB, cached in `~/.
 
 Blender: install the "MCP for Blender" addon, N-panel → **Connect** (port 9876), tick **Hyper3D Rodin**, mode **hyper3d.ai**, set a key.
 
+VLM (render judge + ad copy), pick one:
+- **Hugging Face** (default): `hf auth login` or set `HF_TOKEN` (token needs "Inference Providers" permission). Model `OVEN_VLM_MODEL` (default `Qwen/Qwen3.8-27B`), provider `OVEN_VLM_PROVIDER` (default `auto`).
+- **Ollama** (offline): `ollama pull qwen3-vl:2b`, then `OVEN_VLM_BACKEND=ollama`. CPU-only laptops: expect tens of seconds per call.
+- **metrics**: no model; pixel checks only, copy built from the seller blurb.
+
 ## Layout
 ```
 prep/
@@ -22,8 +27,15 @@ blender/               stdlib-only client for the blender-mcp addon socket
   studio/              backdrop, lights, camera framing, render
     blenderScripts/
   preview/             viewport screenshot sanity check
+compose/               Pillow only, no Blender
+  heroShot/            product PNG + AdCopy → 9:16 / 1:1 / 16:9 hero shots (Poppins, OFL)
+agent/                 decisions; only heroLoop touches Blender
+  vlm/                 VlmClient: askJson(prompt, pydanticModel, images) over HF or Ollama
+  judge/               pixel gate + VLM verdict + policy (proceed / retry / fallback2d)
+  copywriter/          photo + seller blurb → AdCopy, no invented numbers
+  heroLoop/            render → judge → retry or fallback → compose; writes decisions.json
 tests/
-  e2eTest.py
+  e2eTest.py  composeTest.py  judgeTest.py  heroTest.py
 ```
 `blenderScripts/*.py` run inside Blender via `client.runScript(path, args)`: the script gets `args`, defines `main(args)`, and its return value comes back as JSON.
 
@@ -48,13 +60,40 @@ with BlenderClient() as c:
 | `submitJob` / `pollJob` / `importAsset` | split steps, to resume a job without paying again; failures recheck balance |
 | `setupStudio(c, objName, ...)` | removes default Cube/Light/Camera + previous studio objects, scales product to `targetSize`, curved backdrop, key/fill/rim (`soft`, `dramatic`, `highKey`), camera fit to bbox (`azimuth`, `elevation`, `lens`, `padding`), `aspect` `1:1`/`4:5`/`9:16`/`16:9` |
 | `viewportScreenshot(c, out)` | camera view, material preview, overlays off; flags near-empty images |
-| `renderStill(c, out, engine, samples, transparent)` | PNG, EEVEE (~35s @1080²) or Cycles (GPU if found) |
+| `renderStill(c, out, engine, samples, transparent)` | PNG, EEVEE (~35s @1080²) or Cycles (GPU if found); `transparent` hides the backdrop (EEVEE) or makes it a shadow catcher (Cycles) so the PNG is a real product cutout |
 
 The free-trial key (`vibecoding`) is shared by all blender-mcp users. When it runs dry you get `HYPER3D FREE-TRIAL BALANCE EXHAUSTED ...` rather than a vague API error; reuse an already imported model with `--skipGen`.
+
+### Hero shots + the agent decision
+```python
+from agent import runHero
+
+with BlenderClient() as c:
+    result = runHero(c, "Product", referencePath="photo.jpg", cutoutPath=cutout,
+                     blurb="Wireless earbuds, 30h battery, IPX4", outDir="out/agent", backend="hf")
+# result["source"] is "3d" or "2d"; result["heroes"] maps "9:16" / "1:1" / "16:9" to PNGs
+```
+Each attempt renders a transparent 1600² still, then `judgeRender` decides:
+1. **Pixel gate** (free): blank, cropped at the edge, too small or large, under or over exposed → retry with a deterministic fix, no model call.
+2. **VLM verdict**: render (flattened on gray) next to the original photo; scores lighting, visibility, meshQuality, fidelity, composition, then `proceed`, `retry` with a new camera/lighting setup it picks, or `fallback2d`.
+3. **Policy** (code): meshQuality or fidelity ≤ 2 → `fallback2d` (a camera can't fix geometry); retry budget spent → `fallback2d`; a repeated setup → orbit to an untried azimuth; params clamped to valid ranges; VLM unreachable → pixel-gate result.
+
+`fallback2d` composes the rembg cutout instead of the render. The full reasoning per attempt is in `out/agent/decisions.json`.
+
+| Function | Notes |
+|---|---|
+| `composeAll(productPng, copy, outDir)` | RGBA input → gradient bg tinted by the product's accent color, contact shadow, auto-fit text; opaque input → cover crop + text scrim. CLI `python -m compose.heroShot product.png --copy copy.json` |
+| `judgeRender(render, reference, history, params, attempt, maxAttempts, vlm)` | returns `Verdict` (`action`, `scores`, `issues`, `retry`, `policy`, `judgedBy`) |
+| `writeCopy(reference, blurb, vlm)` | `(AdCopy, info)`; drops lines with numbers not in the blurb and specs repeating the title; falls back to blurb-derived copy |
 
 ## Test
 ```
 python tests/e2eTest.py --image headphones.jpeg          # full run, uses one Hyper3D generation
 python tests/e2eTest.py --skipGen --obj Product          # reuse object already in scene
+python tests/composeTest.py                              # offline, writes out/hero/
+python tests/judgeTest.py                                # offline gate/policy/copy checks
+python tests/judgeTest.py --live --render out/render.png # one real judge + copy call (--backend ollama)
+python tests/heroTest.py --obj Product --blurb "Wireless earbuds, 30h battery"   # agent loop in Blender
+python tests/heroTest.py --backend metrics --force retry --maxAttempts 2           # loop control, no model
 ```
 Flags: `--noCutout`, `--engine cycles`, `--transparent`, `--aspect 9:16`, `--lighting dramatic`. Outputs go to `out/`.
