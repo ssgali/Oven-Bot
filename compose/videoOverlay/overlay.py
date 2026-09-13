@@ -2,17 +2,17 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
+from ..heroShot.backdrop import scrim
 from ..heroShot.typography import drawLines, fitParagraph
 
 framePattern = "frame_{:05d}.png"
-scrimFill = (0, 0, 0, 120)
 textFill = (255, 255, 255, 255)
 
 
 def overlayBox(position, w, h):
-    pad = round(w * 0.06)
-    top = {"top": 0.04, "center": 0.42, "bottom": 0.82, "lowerThird": 0.72}[position]
-    return (pad, round(h * top), w - 2 * pad, round(h * 0.16))
+    pad = round(w * 0.07)
+    top = {"top": 0.05, "center": 0.42, "bottom": 0.80, "lowerThird": 0.70}[position]
+    return (pad, round(h * top), w - 2 * pad, round(h * 0.18))
 
 
 def activeOverlays(script, frame):
@@ -22,25 +22,33 @@ def activeOverlays(script, frame):
                 yield o
 
 
-def drawOverlay(img, overlay):
-    draw = ImageDraw.Draw(img, "RGBA")
+def drawOverlay(img, overlay, accent=None):
+    """A soft blurred scrim hugging the wrapped text (mirrors heroShot's on-photo caption treatment)
+    plus, when this job has a resolved brand accent, a thin accent-colored bar under the headline."""
     w, h = img.size
     box = overlayBox(overlay["position"], w, h)
-    f, lines = fitParagraph(draw, overlay["content"], "bold", box, maxSize=round(h * 0.06), minSize=round(h * 0.03),
-                            maxLines=2)
-    x, y, bw, bh = box
-    draw.rounded_rectangle((x, y, x + bw, y + bh), radius=round(h * 0.02), fill=scrimFill)
-    drawLines(draw, lines, f, box, fill=textFill, align="center", valign="center")
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    f, lines = fitParagraph(measure, overlay["content"], "bold", box, maxSize=round(h * 0.062),
+                            minSize=round(h * 0.032), maxLines=2)
+    textBox = drawLines(measure, lines, f, box, fill=textFill, align="center", valign="center")
+    scrim(img, textBox, opacity=0.55, pad=round(h * 0.03))
+    if accent:
+        x0, y0, x1, y1 = textBox
+        barW, barH = round((x1 - x0) * 0.32), max(3, round(h * 0.007))
+        bx, by = x0 + (x1 - x0 - barW) // 2, y1 + round(h * 0.018)
+        ImageDraw.Draw(img, "RGBA").rounded_rectangle((bx, by, bx + barW, by + barH), radius=barH // 2,
+                                                       fill=(*accent, 255))
+    drawLines(ImageDraw.Draw(img, "RGBA"), lines, f, box, fill=textFill, align="center", valign="center")
 
 
-def compositeFrame(rawPath, script, frame, outPath):
+def compositeFrame(rawPath, script, frame, outPath, accent=None):
     img = Image.open(rawPath).convert("RGBA")
     for overlay in activeOverlays(script, frame):
-        drawOverlay(img, overlay)
+        drawOverlay(img, overlay, accent)
     img.save(outPath)
 
 
-def compositeOverlays(rawFrameDir, script, compositedDir, startFrame=None, endFrame=None):
+def compositeOverlays(rawFrameDir, script, compositedDir, startFrame=None, endFrame=None, accent=None):
     """Redraws text overlays for [startFrame, endFrame] (default: the whole timeline) from existing raw
     renders. No Blender involved — this is what makes a text-only revision cheap."""
     rawFrameDir, compositedDir = Path(rawFrameDir), Path(compositedDir)
@@ -54,6 +62,6 @@ def compositeOverlays(rawFrameDir, script, compositedDir, startFrame=None, endFr
         if not raw.is_file():
             continue
         out = compositedDir / name
-        compositeFrame(raw, script, frame, out)
+        compositeFrame(raw, script, frame, out, accent)
         written.append(str(out))
     return {"startFrame": lo, "endFrame": hi, "frames": written}

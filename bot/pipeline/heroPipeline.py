@@ -286,9 +286,14 @@ def makeModel(client, say, source, name, previous, timeout):
 
     def onProgress(update):
         if isinstance(update, dict):
-            text = f"Hyper3D job submitted (balance {update.get('balance')} credits)."
+            if "submitted" in update:
+                text = f"Model request sent to {update['submitted']}…" if update.get("submitted") else "Model job submitted."
+            elif "downloaded" in update:
+                text = f"Model received ({update['downloaded']} bytes); importing…"
+            else:
+                text = f"Model job submitted (balance {update.get('balance')} credits)."
         else:
-            text = f"Hyper3D: {sum(s == 'Done' for s in update)}/{len(update)} steps done"
+            text = f"Model: {sum(s == 'Done' for s in update)}/{len(update)} steps done"
         if last[-1:] != [text]:
             last.append(text)
             say(text)

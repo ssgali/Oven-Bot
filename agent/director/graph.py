@@ -9,7 +9,7 @@ from langgraph.types import interrupt
 from pydantic import ValidationError
 
 from blender.video import animateShots, encodeFrames, renderRange
-from compose.videoOverlay import compositeOverlays
+from compose.videoOverlay import backdropColor, compositeOverlays, loadOrComputeAccent
 
 from .chatModel import makeChatModel
 from .paths import JobPaths
@@ -59,11 +59,12 @@ def renderNode(state, config):
     say = config["configurable"]["progress"]
     jobPaths = jobPathsFor(state)
     script = state["script"]
+    accent = loadOrComputeAccent(jobPaths.versionDir, state["images"][0], state["objName"])
     say("Building the studio and keyframing the timeline…")
-    animateShots(client, script)
+    animateShots(client, script, bgColor=backdropColor(accent))
     say(f"Rendering {script['totalFrames']} frame(s)…")
     renderRange(client, jobPaths.rawDir, 0, script["totalFrames"] - 1, jobPaths.engine, jobPaths.samples)
-    compositeOverlays(jobPaths.rawDir, script, jobPaths.compositedDir)
+    compositeOverlays(jobPaths.rawDir, script, jobPaths.compositedDir, accent=accent)
     r = encodeFrames(jobPaths.compositedDir, jobPaths.videoPath, script["fps"])
     say(f"Encoded {r['outPath']}.")
     return {"videoPath": r["outPath"]}
@@ -113,7 +114,8 @@ def reviseScriptNode(state, config):
         """Call once the rendered result satisfies the critique and no further tool calls are needed."""
         return "done"
 
-    tools = makeDirectorTools(client, jobPaths, scriptBox) + [propose_revision, finish_revision]
+    tools = (makeDirectorTools(client, jobPaths, scriptBox, state["images"][0], state["objName"])
+            + [propose_revision, finish_revision])
     toolsByName = {t.name: t for t in tools}
     model = makeChatModel(config["configurable"].get("reviseBackend")).bind_tools(tools)
 

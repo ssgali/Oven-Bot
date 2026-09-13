@@ -1,6 +1,9 @@
 # oven_bot
 Multi App Agent Hackathon
 
+## Sample output
+[docs/sample-ad.mp4](docs/sample-ad.mp4) — a real video ad produced end-to-end by the `video` pipeline (director agent → Blender render → composited text overlays).
+
 ## Setup
 ```
 python -m venv .venv
@@ -9,7 +12,9 @@ pip install -r requirements.txt
 ```
 First background removal downloads the rembg model once (~180 MB, cached in `~/.rembg`).
 
-Blender: install the "MCP for Blender" addon, N-panel → **Connect** (port 9876), tick **Hyper3D Rodin**, mode **hyper3d.ai**, set a key.
+Blender: install the "MCP for Blender" addon, N-panel → **Connect** (port 9876).
+
+3D model backend: `blender/customModel` calls a self-hosted image → GLB endpoint (POST `{"image": base64(photo)}`, response body is the `.glb`) instead of Hyper3D Rodin. Set `OVEN_MODEL_ENDPOINT` in `.env` to that endpoint's URL. (Hyper3D Rodin is still available as `blender.generateModelHyper3d` / `blender.hyper3d` if you tick **Hyper3D Rodin** in the addon and set a key.)
 
 VLM (render judge + ad copy), pick one:
 - **Hugging Face** (default): `hf auth login` or set `HF_TOKEN` (token needs "Inference Providers" permission). Model `OVEN_VLM_MODEL` (default `Qwen/Qwen3.8-27B`), provider `OVEN_VLM_PROVIDER` (default `auto`).
@@ -22,7 +27,9 @@ prep/
   removeBg/            photo → transparent PNG (rembg, OpenCV GrabCut fallback)
 blender/               stdlib-only client for the blender-mcp addon socket
   client/              BlenderClient: JSON over TCP, execCode, runScript
-  hyper3d/             image → Rodin 3D job → poll → import; balance checks
+  customModel/         image → self-hosted GLB endpoint → import (default model backend)
+    blenderScripts/    code that runs inside Blender
+  hyper3d/             image → Rodin 3D job → poll → import; balance checks (alternate backend)
     blenderScripts/    code that runs inside Blender
   studio/              backdrop, lights, camera framing, render
     blenderScripts/

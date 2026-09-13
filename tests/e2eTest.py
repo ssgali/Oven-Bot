@@ -7,7 +7,8 @@ root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root))
 sys.stdout.reconfigure(encoding="utf-8")
 
-from blender import BlenderClient, ensureReady, generateModel, renderStill, setupStudio, viewportScreenshot  # noqa: E402
+from blender import BlenderClient, ensureReady, renderStill, setupStudio, viewportScreenshot  # noqa: E402
+from blender import generateModelHyper3d as generateModel  # noqa: E402 (this script exercises Hyper3D specifically)
 from prep import hasAlpha, removeBackground  # noqa: E402
 
 assetsDir = root / "tests" / "assets"
