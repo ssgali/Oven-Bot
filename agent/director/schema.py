@@ -102,9 +102,9 @@ class VideoScript(BaseModel):
                                      f"({overlap} != {cur.transitionInFrames})")
             elif gap != 0:
                 raise ValueError(f"shot {cur.id}: cut shots must be contiguous with the previous shot (gap {gap})")
-        if shots[-1].endFrame != self.totalFrames:
-            raise ValueError(f"totalFrames ({self.totalFrames}) must equal the last shot's endFrame "
-                             f"({shots[-1].endFrame})")
+        if shots[-1].endFrame != self.totalFrames - 1:
+            raise ValueError(f"totalFrames ({self.totalFrames}) is a frame COUNT: the last shot's endFrame "
+                             f"must be totalFrames - 1 ({self.totalFrames - 1}), got {shots[-1].endFrame}")
         ids = [s.id for s in shots]
         if len(set(ids)) != len(ids):
             raise ValueError(f"duplicate shot ids: {ids}")
@@ -140,7 +140,7 @@ def affectedFrameRange(script, shotIds):
         start -= shots[positions[0]].transitionInFrames
     if positions[-1] < lastIdx and shots[positions[-1] + 1].transitionIn == "crossfade":
         end += shots[positions[-1] + 1].transitionInFrames
-    return max(0, start), min(script.totalFrames, end)
+    return max(0, start), min(script.totalFrames - 1, end)
 
 
 def resolveScope(script, declaredShotIds, declaredScope):
@@ -149,6 +149,6 @@ def resolveScope(script, declaredShotIds, declaredScope):
     total = len(script.shots)
     forceGlobal = declaredScope == "global" or (total and len(actual) / total > globalFraction)
     if forceGlobal:
-        return "global", (0, script.totalFrames)
+        return "global", (0, script.totalFrames - 1)
     frameRange = affectedFrameRange(script, actual)
     return "scoped", frameRange

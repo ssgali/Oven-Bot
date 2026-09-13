@@ -23,7 +23,8 @@ def shot(id, start, end, azimuth=0.0, preset="soft", overlays=(), transitionIn="
 
 
 def threeShotScript():
-    return {"fps": 30, "totalFrames": 90, "objName": "Product",
+    # totalFrames is a frame COUNT: the last shot's endFrame (90) must be totalFrames - 1, i.e. 91.
+    return {"fps": 30, "totalFrames": 91, "objName": "Product",
             "shots": [shot("shot-1", 0, 30), shot("shot-2", 30, 60, azimuth=45), shot("shot-3", 60, 90, azimuth=90)]}
 
 

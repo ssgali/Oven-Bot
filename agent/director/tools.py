@@ -35,7 +35,7 @@ def makeDirectorTools(client, jobPaths, scriptBox):
     def render_full() -> dict:
         """Re-render the entire timeline, recomposite and re-encode. Use when the change is global or
         touches most shots."""
-        return _renderRange(client, jobPaths, scriptBox["script"], 0, scriptBox["script"]["totalFrames"])
+        return _renderRange(client, jobPaths, scriptBox["script"], 0, scriptBox["script"]["totalFrames"] - 1)
 
     @tool
     def recomposite_overlays(startFrame: int, endFrame: int) -> dict:

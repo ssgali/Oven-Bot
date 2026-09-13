@@ -32,8 +32,10 @@ Rules:
 - lighting is one of soft | dramatic | highKey per shot (one lighting keyframe at the shot's start frame).
 - textOverlays: short, factual, only from the seller notes; give each an id, inFrame/outFrame within its shot,
   and a position (top | center | bottom | lowerThird).
-- Frame numbers are absolute across the whole timeline; shots must be contiguous (or crossfade-overlapping),
-  starting at frame 0, ending at totalFrames.
+- Frame numbers are absolute, 0-indexed across the whole timeline. totalFrames is a COUNT (fps * seconds),
+  so the last valid frame index is totalFrames - 1: the first shot's startFrame is 0 and the last shot's
+  endFrame must be exactly totalFrames - 1 (e.g. 8 seconds at 8 fps is totalFrames=64, last endFrame=63).
+  Shots must be contiguous: each shot's startFrame equals the previous shot's endFrame.
 
 Reply with only a JSON object matching the schema."""
 

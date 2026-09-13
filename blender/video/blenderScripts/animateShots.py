@@ -119,7 +119,7 @@ def main(a):
 
     scene.render.resolution_x, scene.render.resolution_y = resolution
     scene.render.resolution_percentage = 100
-    scene.frame_start, scene.frame_end = 0, script["totalFrames"]
+    scene.frame_start, scene.frame_end = 0, script["totalFrames"] - 1  # totalFrames is a count, not an index
     try:
         scene.view_settings.view_transform = "AgX"
     except TypeError:

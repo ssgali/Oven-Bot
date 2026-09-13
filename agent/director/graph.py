@@ -61,8 +61,8 @@ def renderNode(state, config):
     script = state["script"]
     say("Building the studio and keyframing the timeline…")
     animateShots(client, script)
-    say(f"Rendering {script['totalFrames'] + 1} frame(s)…")
-    renderRange(client, jobPaths.rawDir, 0, script["totalFrames"], jobPaths.engine, jobPaths.samples)
+    say(f"Rendering {script['totalFrames']} frame(s)…")
+    renderRange(client, jobPaths.rawDir, 0, script["totalFrames"] - 1, jobPaths.engine, jobPaths.samples)
     compositeOverlays(jobPaths.rawDir, script, jobPaths.compositedDir)
     r = encodeFrames(jobPaths.compositedDir, jobPaths.videoPath, script["fps"])
     say(f"Encoded {r['outPath']}.")

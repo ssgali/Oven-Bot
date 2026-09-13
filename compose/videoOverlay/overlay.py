@@ -46,7 +46,7 @@ def compositeOverlays(rawFrameDir, script, compositedDir, startFrame=None, endFr
     rawFrameDir, compositedDir = Path(rawFrameDir), Path(compositedDir)
     compositedDir.mkdir(parents=True, exist_ok=True)
     lo = 0 if startFrame is None else startFrame
-    hi = script["totalFrames"] if endFrame is None else endFrame
+    hi = (script["totalFrames"] - 1) if endFrame is None else endFrame
     written = []
     for frame in range(lo, hi + 1):
         name = framePattern.format(frame)
