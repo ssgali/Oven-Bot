@@ -34,10 +34,28 @@ def enableGpu(scene):
     return "CPU"
 
 
+def isolateProduct(scene, cycles):
+    # film_transparent only clears the world; the backdrop mesh would still fill the frame
+    backdrop = next((o for o in scene.objects if o.get("ovenStudio") and o.name.startswith("ovenBackdrop")), None)
+    if backdrop is None:
+        return lambda: None
+    old = (backdrop.hide_render, backdrop.is_shadow_catcher)
+    if cycles:
+        backdrop.is_shadow_catcher = True
+    else:
+        backdrop.hide_render = True
+
+    def restore():
+        backdrop.hide_render, backdrop.is_shadow_catcher = old
+
+    return restore
+
+
 def main(a):
     scene = bpy.context.scene
     if scene.camera is None:
         raise RuntimeError("scene has no camera; run setupStudio first")
+    restore = isolateProduct(scene, a["engine"] == "cycles") if a["transparent"] else (lambda: None)
     if a["engine"] == "cycles":
         scene.render.engine = "CYCLES"
         scene.cycles.samples = a["samples"] or 128
@@ -53,7 +71,10 @@ def main(a):
     r.image_settings.color_mode = "RGBA" if a["transparent"] else "RGB"
     r.filepath = a["outPath"]
     t = time.perf_counter()
-    bpy.ops.render.render(write_still=True)
+    try:
+        bpy.ops.render.render(write_still=True)
+    finally:
+        restore()
     return {
         "outPath": a["outPath"],
         "seconds": round(time.perf_counter() - t, 2),
