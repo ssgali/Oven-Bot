@@ -4,6 +4,7 @@ from agent.judge import clampParams
 from ..jobs import FeedbackAction
 
 approveWords = ("approve", "approved", "lgtm")
+use3dTerms = ("use the 3d", "use 3d", "use the render", "use the blender", "3d version")
 regenerateTerms = ("model is wrong", "wrong model", "wrong shape", "regenerate", "use the other image",
                    "different image", "new model")
 reeditTerms = ("cta", "text", "copy", "title", "tagline", "headline", "specs", "price", "wording", "layout", "font")
@@ -23,7 +24,8 @@ def mentions(text, terms):
 def classifyFeedback(text):
     """Keyword router; copy terms win over render terms so "the CTA is too small" edits text, not the camera."""
     text = normalize(text)
-    for terms, action in ((approveWords, FeedbackAction.APPROVE), (regenerateTerms, FeedbackAction.REGENERATE_3D),
+    for terms, action in ((approveWords, FeedbackAction.APPROVE), (use3dTerms, FeedbackAction.USE_3D),
+                          (regenerateTerms, FeedbackAction.REGENERATE_3D),
                           (reeditTerms, FeedbackAction.REEDIT), (rerenderTerms, FeedbackAction.RERENDER)):
         if mentions(text, terms):
             return action

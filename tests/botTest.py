@@ -29,6 +29,7 @@ def feedbackCases():
         "The CTA text is too small": A.REEDIT,
         "the title should say Aurora Pro": A.REEDIT,
         "the model is wrong, use the other image": A.REGENERATE_3D,
+        "use the 3d render anyway": A.USE_3D,
         "this is out of context": A.UNKNOWN,  # "text" inside another word must not route to a copy edit
         "hmm, not sure": A.UNKNOWN,
     }
@@ -47,6 +48,14 @@ def paramsCases():
     check(p["azimuth"] == -120.0, f"other side should wrap past 180: {p}")
     p = adjustRenderParams("render it again please", base)
     check(p["azimuth"] == base["azimuth"] + 45, f"unrecognized request should still change the view: {p}")
+
+
+def priceCases():
+    copy = {"title": "Buds", "price": ""}
+    check(heroPipeline.withPrice(copy, "Aurora Buds\nPrice: Rs 5,999\nCTA: Shop Now")["price"] == "Rs 5,999", "Price line")
+    check(heroPipeline.withPrice(copy, "black earbuds, only $79.99 this week")["price"] == "$79.99", "currency amount")
+    check(heroPipeline.withPrice(copy, "black earbuds, 30h battery")["price"] == "", "invented a price")
+    check(heroPipeline.withPrice({**copy, "price": "$50"}, "Price: $79")["price"] == "$50", "overwrote a price")
 
 
 def intakeCases():
@@ -71,7 +80,7 @@ def makeJob(folder):
     spec.write_text("Wireless earbuds, 30h battery, IPX4", encoding="utf-8")
     files = [productImage(folder / "small.png", (300, 400)), productImage(folder / "big.png", (600, 800)), spec]
     return ProductJob(jobId="JOB-TEST", guildId=1, channelId=2, sourceMessageId=3, threadId=4, userId=5,
-                      prompt="Aurora earbuds", attachments=[
+                      prompt="Aurora earbuds\nPrice: $79", attachments=[
                           Attachment(p.name, f"https://example.test/{p.name}", p.stat().st_size, str(p)) for p in files])
 
 
@@ -102,7 +111,7 @@ async def devCase(folder):
     job = makeJob(folder)
     messages = []
 
-    async def progress(m):
+    async def progress(m, files=()):
         messages.append(m)
 
     pipeline = DevPipeline(Settings("token", dataDir=folder))
@@ -135,7 +144,7 @@ class FakeBlender:
 
 
 async def heroCase(folder):
-    generated, heroRuns, messages = [], [], []
+    generated, heroRuns, messages, posted = [], [], [], []
 
     def fakeGenerate(client, imagePath, name="Product", timeout=600, onProgress=None, **kw):
         for update in ({"submitted": "uuid", "balance": 9.0}, ["Generating"], ["Generating"], ["Done"]):
@@ -146,22 +155,30 @@ async def heroCase(folder):
 
     def fakeHero(client, objName, referencePath, cutoutPath=None, blurb="", productName="", outDir="out",
                  maxAttempts=3, backend="hf", engine="eevee", params=None, onEvent=print, **kw):
+        """Always judged unusable, like a blobby Hyper3D mesh: the ads fall back to the cutout."""
         params = clampParams(params)
-        onEvent(f"attempt 1 {params}: proceed")
         copy = AdCopy(title=f"Render {len(heroRuns)}", specs=["30h battery"])
+        onEvent(f"copy (vlm): {copy.toDict()}")
+        onEvent(f"attempt 1 {params}: fallback2d by vlm — blobby mesh")
         heroes = composeAll(cutoutPath, copy, Path(outDir) / "hero")
+        render = Path(outDir) / "render1.png"
+        Image.open(cutoutPath).save(render)
         heroRuns.append({"params": params, "blurb": blurb})
-        return {"source": "3d", "product": str(cutoutPath), "copy": copy.toDict(),
+        return {"source": "2d", "product": str(cutoutPath), "copy": copy.toDict(),
                 "heroes": {a: h["path"] for a, h in heroes.items()},
-                "attempts": [{"params": params, "verdict": {"action": "proceed", "reason": "fake judge"}}]}
+                "attempts": [{"params": params, "render": str(render),
+                              "verdict": {"action": "fallback2d", "reason": "fake judge: blobby mesh",
+                                          "judgedBy": "vlm", "model": "fake-vlm", "policy": [],
+                                          "scores": {"lighting": 3, "meshQuality": 2, "fidelity": 1}}}]}
 
     heroPipeline.BlenderClient, heroPipeline.generateModel, heroPipeline.runHero = FakeBlender, fakeGenerate, fakeHero
     heroPipeline.VlmClient = lambda backend: "fake-vlm"
     heroPipeline.writeCopy = lambda reference, blurb, vlm: (
         AdCopy(title="Render 0", specs=["30h battery"], cta="Buy Now"), {"source": "vlm", "dropped": []})
 
-    async def progress(m):
+    async def progress(m, files=()):
         messages.append(m)
+        posted.extend(files)
 
     def version(job):
         return Path(job.outputs[0]).parent.parent.name
@@ -169,21 +186,37 @@ async def heroCase(folder):
     job = makeJob(folder)
     pipeline = HeroPipeline(Settings("token", dataDir=folder, vlmBackend="hf"))
     await pipeline.run(job, progress)
+    s = job.state
     check(generated == ["big.png"], f"largest image should be the 3D source: {generated}")
     check(len(job.outputs) == len(formats) and all(Path(o).is_file() for o in job.outputs), f"outputs {job.outputs}")
     check("30h battery" in heroRuns[-1]["blurb"], "spec.txt not passed to the copywriter")
-    check(sum(m == "Hyper3D: Generating" for m in messages) == 1, f"repeated poll status not collapsed: {messages}")
-    firstCopy = job.state["copy"]
+    check(sum(m == "Hyper3D: 0/1 steps done" for m in messages) == 1, f"repeated poll status not collapsed: {messages}")
+    check(not any("{'" in m for m in messages), f"raw heroLoop debug text reached the thread: {messages}")
+    check("Render attempt 1: rejected, fall back to the photo." in messages, "no per-attempt progress line")
+    check(any("**Attempt 1**" in m and "fidelity 1/5" in m for m in messages), "formatted verdict missing")
+    check([Path(p).name for p in posted] == ["render1Preview.jpg"] and Path(posted[0]).is_file(),
+          f"render preview not posted: {posted}")
+    check(s["source"] == "2d" and any("use the 3d render" in m for m in messages), "no override hint on fallback")
+    check(s["copy"]["price"] == "$79", f"price from the brief missing: {s['copy']}")
+    firstCopy = s["copy"]
 
     await pipeline.revise(job, A.RERENDER, "make it brighter", progress)
     check(generated == ["big.png"] and len(heroRuns) == 2, "rerender must reuse the model")
-    check(heroRuns[-1]["params"]["lighting"] == "highKey" and job.state["copy"] == firstCopy and version(job) == "v2",
-          f"rerender: {job.state}")
+    check(heroRuns[-1]["params"]["lighting"] == "highKey" and s["copy"] == firstCopy and version(job) == "v2",
+          f"rerender: {s}")
     check(any("hide_render" in c for c in FakeBlender.code), "other products not hidden before render")
 
     await pipeline.revise(job, A.REEDIT, "the CTA should say Buy Now", progress)
-    check(len(heroRuns) == 2 and job.state["copy"]["cta"] == "Buy Now" and version(job) == "v3",
-          f"reedit must only recompose: {job.state['copy']}")
+    check(len(heroRuns) == 2 and s["copy"]["cta"] == "Buy Now" and s["copy"]["price"] == "$79"
+          and version(job) == "v3", f"reedit must only recompose and keep the price: {s['copy']}")
+
+    await pipeline.revise(job, A.USE_3D, "use the 3d render", progress)
+    check(len(heroRuns) == 2 and s["product"] == s["render"] and s["source"] == "3d-reviewer" and version(job) == "v4",
+          f"use_3d must compose from the last render without rendering: {s}")
+
+    await pipeline.revise(job, A.RERENDER, "change the angle", progress)
+    check(len(heroRuns) == 3 and s["source"] == "3d-reviewer" and s["product"] == s["render"]
+          and "v5" in s["render"], f"override should survive a rerender: {s}")
 
     before = list(job.outputs)
     heroPipeline.writeCopy = lambda reference, blurb, vlm: (AdCopy(), {"source": "fallback", "reason": "offline"})
@@ -197,16 +230,18 @@ async def heroCase(folder):
     await pipeline.revise(job, A.REGENERATE_3D, "the model is wrong", progress)
     check(generated == ["big.png", "small.png"], f"regenerate should move to the next image: {generated}")
     check(any("bpy.data.objects.remove" in c for c in FakeBlender.code), "old model not removed")
+    check(s["source"] == "2d", "a new model should go back to the judge's decision")
 
     FakeBlender.scene.clear()
-    await pipeline.revise(job, A.RERENDER, "change the angle", progress)
+    await pipeline.revise(job, A.RERENDER, "zoom in", progress)
     check(len(generated) == 3 and Path(job.outputs[0]).is_file(), "missing model should be generated again")
-    print(f"  {len(messages)} progress messages, final outputs in {version(job)}")
+    print(f"  {len(messages)} progress messages, {len(posted)} render previews, final outputs in {version(job)}")
 
 
 def main():
     step("feedback routing", feedbackCases)
     step("render nudges from feedback", paramsCases)
+    step("price from the brief", priceCases)
     step("attachment intake", intakeCases)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)

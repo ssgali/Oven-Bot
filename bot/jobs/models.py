@@ -25,6 +25,7 @@ class FeedbackAction(str, Enum):
     RERENDER = "rerender"
     REEDIT = "reedit"
     REGENERATE_3D = "regenerate_3d"
+    USE_3D = "use_3d"
     UNKNOWN = "unknown"
 
 

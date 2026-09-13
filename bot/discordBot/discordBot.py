@@ -57,8 +57,9 @@ class OvenBot(discord.Client):
         task.add_done_callback(self.tasks.discard)
 
     def poster(self, thread):
-        async def post(message):
-            await thread.send(clip(message))
+        async def post(message, files=()):
+            attached = [discord.File(p) for p in files if Path(p).is_file()][:filesPerMessage]
+            await thread.send(clip(message), **({"files": attached} if attached else {}))
         return post
 
     async def startJob(self, message):
@@ -105,7 +106,7 @@ class OvenBot(discord.Client):
             return
         if action is FeedbackAction.UNKNOWN:
             await message.reply("I couldn't route that. Try `approve`, `make it brighter`, `change the angle`, "
-                                "`the CTA should say Buy Now`, or `the model is wrong`.")
+                                "`the CTA should say Buy Now`, `use the 3d render`, or `the model is wrong`.")
             return
         if action is FeedbackAction.APPROVE:
             job.update(JobStatus.APPROVED, "approved")

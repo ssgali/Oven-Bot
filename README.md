@@ -113,6 +113,9 @@ Replies in the thread rerun only what they touch:
 | `the CTA should say Buy Now`, `shorter title` | reedit | copywriter with the request + current copy → compose (needs a VLM backend) |
 | `brighter`, `zoom in`, `other side`, `from above` | rerender | camera/lighting nudged from the last setup → judge loop on the existing model; copy kept |
 | `the model is wrong`, `use the other image` | regenerate_3d | next image → cutout → Hyper3D → judge loop |
+| `use the 3d render` | use_3d | compose from the last render even though the judge rejected it; later rerenders keep using renders |
+
+Every render attempt is posted to the thread (flattened on gray, next to the judge's verdict), so the 3D result is visible even when the ads fall back to the photo cutout. The price comes from a `Price:` line or a currency amount in the message.
 
 Jobs share one Blender scene, so they queue. If the model has vanished (Blender restarted), a rerender regenerates it. A failed revision keeps the previous assets open for review. Files go to `data/<job>/input` and `data/<job>/v<n>/`, job state to `data/jobs.json`; jobs interrupted by a bot restart are reopened (or failed if they have no assets). `OVEN_PIPELINE=dev` swaps in a pipeline that posts the uploads back, to try the Discord flow without Blender. All `OVEN_*` settings are in `.env.example`.
 
